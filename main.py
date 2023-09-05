@@ -1,6 +1,7 @@
 from src.scrape import scrape_page
 from src.utils.url_configure import configure_url, work_fields
 from src.utils.mongo import save_to_mongo, search_DB
+from src.utils.csv import export_csv
 import argparse
 import asyncio
 
@@ -87,12 +88,18 @@ async def main():
     if args.mongo:
         print("started To save data to mongoDB ... ")
         save_to_mongo(Data, "title_" + config["title"] + "_cat-" + config["category"])
+        
+    if args.csv:
+        export_csv(Data)
+        
     elif args.find and args.table:
         table = args.table.split(",")
         result = search_DB(args.find, "title_" + table[0] + "_cat-" + table[1])
         for res in result:
             print(res)
             print()
+            
+    
 
 if __name__ == "__main__":
     asyncio.run(main())

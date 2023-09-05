@@ -1,105 +1,54 @@
-import requests
+import re
+
 from bs4 import BeautifulSoup
-
-li = {
-    "developer": "وب،‌ برنامه‌نویسی و نرم‌افزار", "devops": "IT %2F DevOps %2F Server",
-    "it": "IT %2F DevOps %2F Server", "sysAdmin": "IT %2F DevOps %2F Server",
-    "marketing": "فروش و بازاریابی", "sale": "فروش و بازاریابی", "accounting": "مالی و حسابداری"
-}
-
-filter_dict = {
-    "intern": "&filters[internship]={}",  # 1 for true 0 for false
-    "remote": "&filters[remote]={}",  # 1 for true 0 for false
-    "work_type": "&filters[job_types][1]={}",  # is_parttime or is_fulltime
-    "time": "&preferred_before=1693922352&sort_by=relevance_desc",
-    "category": "&filters[job_categories][]={}",
-    "work_exp": "&filters[w_e][]={}",
-    "title": "&filters[keywords][0]={}",
-    "salary": "&filters[sal_min][2]={}%3A"
-}
-"""
-intern      =>    &filters[internship]=1
-remote      =>    &filters[remote]=1
-part_time   =>    &filters[job_types][1]=is_parttime
-full_time   =>    &filters[job_types][0]=is_fulltime
-time        =>    &preferred_before=1693922352&sort_by=relevance_desc
-title       =>    &filters[keywords][0]=node
-cat         =>    &filters[job_categories][]=
-work_exp    =>    &filters[w_e][]=under_two
-work_exp    =>    &filters[w_e][]=3_6
-work_exp    =>    &filters[w_e][]=7_plus
-work_exp    =>    &filters[w_e][]=any
-salary       =>    &filters[sal_min][2]= 5000000 / 10000000 / 20000000 / 35000000 / 50000000
-"""
+import requests
+from requests.exceptions import Timeout, TooManyRedirects, ReadTimeout
 
 
-def configure_url(conf):
-    base_link = "https://jobinja.ir/jobs?"
-    base_link = work_category(base_link, conf["category"])
-    base_link = is_full_time(base_link, conf["full_time"])
-    base_link = is_intern(base_link, conf["is_intern"])
-    base_link = is_remote(base_link, conf["is_remote"])
-    base_link = add_salary(base_link, conf["salary"])
-
-    if conf["work_exp"] is not None:
-        base_link = work_expirence(base_link, conf["work_exp"])
-    base_link = add_time_filter(base_link)
-
-    return base_link
 
 
-def work_category(base_link, cat: str):
-    if cat in li:
-        c = li[cat]
-    else:
-        c = "developer"
-    return base_link + filter_dict["category"].format(c)
+def get_page(url):
+    try:
+        cookies = {
+            "remember_82e5d2c56bdd0811318f0cf078b78bfc": "eyJpdiI6IlwvcE1MRGR3b0NrSUszQ0dobmlTRkZ3PT0iLCJ2YWx1ZSI6IkwySFpZUFJpdEtzQ0h5c0crVVd3RzR2R2hqaUFoQzdtZlBVZ3NlUVdMeFVmNUlHWVhzREZwbFU2NzN1UzFDVitmMkZqMEphUFYxWnpTWWhIaTcxZHYwSkFiSmFaeW1KT1wvWUpvMSs0VW9OQT0iLCJtYWMiOiJmYmRjMzQ2ZTMzZjhkODJhOGVjYjg0MmViODc4YmVlZmE2NmNlMzc4MzIxYmVhN2U1NDUyNGIwNjljYmQ0NzNiIn0%3D",
+            "user_mode": "eyJpdiI6IlNlazg4RVwvanFVUm5FaENmVEVrc25RPT0iLCJ2YWx1ZSI6IjkwaDV5SDFhWlpRZlYwVHh3dXVRRVE9PSIsIm1hYyI6IjM4YWFhMzMxZWVlMTIwMzlhNTUyY2JjNWRmMzdjYTUxNTk5M2RiOWY2YTQzMzUwMmUxZTJiN2VjNTE3MGQxNDIifQ%3D%3D"
+        }
+        res = requests.get(url, cookies=cookies)
+
+        res.raise_for_status()
+        if res.status_code == 200:
+            return res.text
+        else:
+            return None
+    except (Timeout, TooManyRedirects, ReadTimeout) as e:
+        print("error happened", e)
 
 
-def work_expirence(base_link, work_years):
-    if work_years == 0:
-        return base_link + filter_dict["work_exp"].format("any")
-    elif 2 >= work_years > 0:
-        return base_link + filter_dict["work_exp"].format("under_two")
-    elif 3 <= work_years <= 6:
-        return base_link + filter_dict["work_exp"].format("3_6")
-    else:
-        return base_link + filter_dict["work_exp"].format("7_plus")
+def scrape_page(url, page_count):
+    result_data = []
+    for i in range(1, page_count + 1):
+        page_number = "&page={}"
+        new_url = url + page_number.format(str(i))
+        txt = get_page(new_url)
+        soup = BeautifulSoup(txt, "html.parser")
+        job_cards = soup.find_all("div", class_="c-jobListView__itemWrap")
 
+        for job_card in job_cards:
+            data = {}
+            header = job_card.find("a", class_="c-jobListView__titleLink")
+            title = header.text.strip()
+            link = header.get("href")
+            spans = job_card.find_all("span")
+            days_passed = spans[0].text.strip()
+            company = spans[1].text.strip()
+            location = spans[2].text.strip()
+            salary = re.sub(r'\s', "", spans[3].text.strip())
+            data["title"] = title
+            data["link"] = link
+            data["days_passed"] = days_passed
+            data["company"] = company
+            data["location"] = location
+            data["salary"] = salary
+            result_data.append(data)
+    return result_data
 
-def is_full_time(base_link, full_time):
-    if full_time is True:
-        return base_link + filter_dict["work_type"].format("is_fulltime")
-    else:
-        return base_link + filter_dict["work_type"].format("is_parttime")
-
-
-def is_intern(base_link, intern):
-    if intern is True:
-        return base_link + filter_dict["intern"].format("1")
-    else:
-        return base_link + filter_dict["intern"].format("0")
-
-
-def is_remote(base_link, remote):
-    if remote is True:
-        return base_link + filter_dict["remote"].format("1")
-    else:
-        return base_link + filter_dict["remote"].format("0")
-
-
-def add_salary(base_link, salary):
-    if salary < 10_000_000:
-        return base_link + filter_dict["salary"].format("4500000")
-    elif 20_000_000 > salary >= 10_000_000:
-        return base_link + filter_dict["salary"].format("10000000")
-    elif salary >= 20_000_000:
-        return base_link + filter_dict["salary"].format("35000000")
-
-def add_time_filter(base_link):
-    return base_link + filter_dict["time"]
-
-conf = {"category": "developer", "full_time": True, "work_exp": 0, "is_intern": True, "is_remote": True,
-        "salary": 30_000_000}
-
-print(configure_url(conf))

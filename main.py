@@ -23,7 +23,7 @@ async def main():
     parser.add_argument("-m", "--mongo", action="store_true", help="add items to mongo db")
     parser.add_argument("-c", "--csv", action="store_true", help="export to CSV")
     parser.add_argument("-f", "--find", help="enter the name of the job you want to search the data base", type=str)
-    parser.add_argument("-t", "--tabel", help="enter the name of the tabel (title,category) comma separated", type=str)
+    parser.add_argument("-t", "--table", help="enter the name of the table (title,category) comma separated", type=str)
 
     args = parser.parse_args()
 
@@ -87,9 +87,9 @@ async def main():
     if args.mongo:
         print("started To save data to mongoDB ... ")
         save_to_mongo(Data, "title_" + config["title"] + "_cat-" + config["category"])
-    elif args.find and args.tabel:
-        tabel = args.tabel.split(",")
-        result = search_DB(args.find, "title_" + tabel[0] + "_cat-" + tabel[1])
+    elif args.find and args.table:
+        table = args.table.split(",")
+        result = search_DB(args.find, "title_" + table[0] + "_cat-" + table[1])
         for res in result:
             print(res)
             print()

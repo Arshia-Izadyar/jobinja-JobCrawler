@@ -1,6 +1,6 @@
-from scrape import scrape_page
-from utils.url_configure import configure_url, work_fields
-from utils.mongo import save_to_mongo, search_DB
+from src.scrape import scrape_page
+from src.utils.url_configure import configure_url, work_fields
+from src.utils.mongo import save_to_mongo, search_DB
 import argparse
 import asyncio
 
@@ -77,7 +77,10 @@ async def main():
         work_exp = str(input("enter years of work experience [default => (any)]: "))
         if work_exp != "":
             config["work_exp"] = int(work_exp)
+        else:
+            config["work_exp"] = None
         link = configure_url(config)
+        print(f"generated link:\n{link}")
         Data = await scrape_page(link, args.scrape)
     if args.csv:
         pass

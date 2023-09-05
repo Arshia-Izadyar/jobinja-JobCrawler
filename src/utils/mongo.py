@@ -1,11 +1,11 @@
 import pymongo
 
 
-def save_to_mongo(data):
+def save_to_mongo(data, category):
     try:
         with pymongo.MongoClient("mongodb://localhost:27017/") as cli:
-            db = cli['DB']
-            jobs = db["jobs"]
+            db = cli['jobs']
+            jobs = db[category]
             jobs.insert_many(data)
         print("data saved!!!")
 
@@ -13,9 +13,9 @@ def save_to_mongo(data):
         print("error happend : ", e)
 
 
-def search_DB(phrase):
+def search_DB(phrase, category):
     with pymongo.MongoClient("mongodb://localhost:27017/") as client:
-        db = client["DB"]
-        jobs = db["jobs"]
+        db = client["jobs"]
+        jobs = db[category]
         result = jobs.find({"title": {"$regex": f".*{phrase}.*"}})
         return list(result)

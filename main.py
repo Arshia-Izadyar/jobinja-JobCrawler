@@ -2,6 +2,7 @@ from scrape import scrape_page
 from utils.url_configure import configure_url, work_fields
 from utils.mongo import save_to_mongo, search_DB
 import argparse
+import asyncio
 
 config = {
     "title": "",
@@ -16,12 +17,13 @@ config = {
 global Data
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(description="this script will scrape the jobinja.ir")
     parser.add_argument("-s", "--scrape", help="enter how many pages should scrape 1-10 (it's exclusive)", type=int)
     parser.add_argument("-m", "--mongo", action="store_true", help="add items to mongo db")
     parser.add_argument("-c", "--csv", action="store_true", help="export to CSV")
-    parser.add_argument("-f", "--find", help="enter the name of the product you want to search the data base", type=str)
+    parser.add_argument("-f", "--find", help="enter the name of the job you want to search the data base", type=str)
+    parser.add_argument("-t", "--tabel", help="enter the name of the tabel (title,category) comma separated", type=str)
 
     args = parser.parse_args()
 
@@ -41,9 +43,8 @@ def main():
 
         title = str(input("enter your preferred job title or empty for nil title [default => (any)]: ")).lower()
         config["title"] = title
-
         full_time = str(
-            input("Type \"full\" for fullTime works or \"part\" for partTime [default => (True)]: ")).lower()
+            input("Type \"full\" for fullTime works or \"part\" for partTime [default => (FullTime)]: ")).lower()
         if full_time == "full":
             is_full_time = True
         elif full_time == "part":
@@ -77,18 +78,18 @@ def main():
         if work_exp != "":
             config["work_exp"] = int(work_exp)
         link = configure_url(config)
-        Data = scrape_page(link, args.scrape)
+        Data = await scrape_page(link, args.scrape)
     if args.csv:
         pass
     if args.mongo:
         print("started To save data to mongoDB ... ")
-        save_to_mongo(Data)
-    elif args.find:
-        result = search_DB(args.find)
+        save_to_mongo(Data, "title_" + config["title"] + "_cat-" + config["category"])
+    elif args.find and args.tabel:
+        tabel = args.tabel.split(",")
+        result = search_DB(args.find, "title_" + tabel[0] + "_cat-" + tabel[1])
         for res in result:
             print(res)
             print()
 
-
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
